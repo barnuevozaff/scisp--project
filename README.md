@@ -247,6 +247,17 @@ the UI hiding the New/Edit/Delete buttons for students is a convenience,
 not the security boundary. Event registration (`POST /events/register`)
 requires a linked student profile regardless of what the client sends.
 
+### New student accounts and the Class Schedule
+
+Every newly created **student** account — whether via the Register form
+or "Sign in with Google" — is automatically enrolled into the current
+term's full subject offering (the same set of sections seeded for the
+demo student). This mirrors how a registrar's office batch-enrolls an
+incoming class into that semester's default course load, so a freshly
+created account immediately has a populated, demonstrable Class Schedule
+rather than starting blank. (Administrator and faculty accounts are not
+auto-enrolled, since they don't take classes.)
+
 ## 8. Bonus Features Implemented
 
 Beyond the required modules, this project implements the following

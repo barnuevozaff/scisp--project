@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const UserModel = require('../models/userModel');
 const StudentModel = require('../models/studentModel');
+const ScheduleModel = require('../models/scheduleModel');
 const { signToken } = require('../utils/jwt');
 
 class HttpError extends Error {
@@ -14,6 +15,25 @@ class HttpError extends Error {
 }
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+
+/**
+ * Auto-enrolls a newly created student into the current term's standard
+ * curriculum offering — mirroring how a registrar's office batch-enrolls
+ * an incoming class, rather than leaving a brand-new account with an
+ * empty class schedule. Failures here are logged but never thrown: a
+ * hiccup in default enrollment should never prevent the account itself
+ * from being created.
+ */
+async function autoEnrollNewStudent(studentPk) {
+  try {
+    const scheduleIds = await ScheduleModel.findCurrentTermScheduleIds();
+    if (scheduleIds.length > 0) {
+      await ScheduleModel.enrollInSchedules(studentPk, scheduleIds);
+    }
+  } catch (err) {
+    console.error('Auto-enrollment failed for new student:', err.message);
+  }
+}
 
 const AuthService = {
   /**
@@ -58,13 +78,14 @@ const AuthService = {
     const userId = await UserModel.create({ fullName, email, passwordHash, role: role || 'student' });
 
     if ((role || 'student') === 'student') {
-      await StudentModel.create({
+      const studentPk = await StudentModel.create({
         userId,
         studentId: studentId || `2026-${String(userId).padStart(5, '0')}`,
         course: course || 'Undeclared',
         yearLevel: yearLevel || '1st Year',
         contactNumber: contactNumber || null,
       });
+      await autoEnrollNewStudent(studentPk);
     }
 
     const token = signToken({ id: userId, role: role || 'student', email });
@@ -113,13 +134,14 @@ const AuthService = {
       const fullName = payload.name || payload.email.split('@')[0];
 
       const userId = await UserModel.create({ fullName, email: payload.email, passwordHash, role: 'student' });
-      await StudentModel.create({
+      const studentPk = await StudentModel.create({
         userId,
         studentId: `2026-${String(userId).padStart(5, '0')}`,
         course: 'Undeclared',
         yearLevel: '1st Year',
         contactNumber: null,
       });
+      await autoEnrollNewStudent(studentPk);
 
       user = await UserModel.findByEmail(payload.email);
     }
