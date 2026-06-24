@@ -43,4 +43,6 @@ export const eventService = {
   getById: (id) => api.get(`/events/${id}`).then((r) => r.data),
   register: (eventId) => api.post('/events/register', { eventId }).then((r) => r.data),
   myRegistrations: () => api.get('/events/registrations/mine').then((r) => r.data),
+  getQrCode: (registrationId) =>
+    api.get(`/events/registrations/${registrationId}/qrcode`).then((r) => r.data),
 };

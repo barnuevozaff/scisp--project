@@ -1,10 +1,11 @@
 // src/pages/RegisterPage.jsx
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: '',
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -34,6 +36,24 @@ export default function RegisterPage() {
       setSubmitting(false);
     }
   }
+
+  const handleGoogleCredential = useCallback(
+    async (idToken) => {
+      setError('');
+      setGoogleSubmitting(true);
+      try {
+        await loginWithGoogle(idToken);
+        navigate('/dashboard');
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not sign up with Google. Please try again.');
+      } finally {
+        setGoogleSubmitting(false);
+      }
+    },
+    [loginWithGoogle, navigate]
+  );
+
+  const handleGoogleError = useCallback((message) => setError(message), []);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -96,6 +116,18 @@ export default function RegisterPage() {
               {submitting ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <span className="h-px flex-1 bg-hairline" />
+            <span className="text-xs uppercase tracking-widest2 text-ink-400">or</span>
+            <span className="h-px flex-1 bg-hairline" />
+          </div>
+
+          {googleSubmitting ? (
+            <p className="text-center text-sm text-ink-500">Signing in with Google…</p>
+          ) : (
+            <GoogleSignInButton onCredential={handleGoogleCredential} onError={handleGoogleError} />
+          )}
 
           <p className="text-center text-sm text-ink-500 mt-6">
             Already have an account?{' '}

@@ -2,7 +2,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const validate = require('../middleware/validate');
-const { login, register, logout } = require('../controllers/authController');
+const { login, register, googleLogin, logout } = require('../controllers/authController');
 
 const router = express.Router();
 
@@ -26,6 +26,13 @@ router.post(
   ],
   validate,
   register
+);
+
+router.post(
+  '/google',
+  [body('idToken').notEmpty().withMessage('A Google idToken is required.')],
+  validate,
+  googleLogin
 );
 
 router.post('/logout', logout);

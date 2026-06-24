@@ -7,5 +7,7 @@ export const authService = {
 
   register: (payload) => api.post('/auth/register', payload).then((res) => res.data),
 
+  loginWithGoogle: (idToken) => api.post('/auth/google', { idToken }).then((res) => res.data),
+
   logout: () => api.post('/auth/logout').then((res) => res.data),
 };

@@ -13,6 +13,13 @@ const register = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, message: 'Account created successfully.', data: result });
 });
 
+/** Bonus feature: Google OAuth sign-in. Body: { idToken }. */
+const googleLogin = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+  const result = await AuthService.loginWithGoogle({ idToken });
+  res.json({ success: true, message: 'Signed in with Google successfully.', data: result });
+});
+
 /**
  * JWTs are stateless, so "logout" is handled client-side by discarding the
  * token. This endpoint exists for API completeness and to give the client
@@ -22,4 +29,4 @@ const logout = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Signed out successfully.' });
 });
 
-module.exports = { login, register, logout };
+module.exports = { login, register, googleLogin, logout };

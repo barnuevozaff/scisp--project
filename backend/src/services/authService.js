@@ -1,5 +1,7 @@
 // src/services/authService.js
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const UserModel = require('../models/userModel');
 const StudentModel = require('../models/studentModel');
 const { signToken } = require('../utils/jwt');
@@ -10,6 +12,8 @@ class HttpError extends Error {
     this.status = status;
   }
 }
+
+const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
 const AuthService = {
   /**
@@ -65,6 +69,76 @@ const AuthService = {
 
     const token = signToken({ id: userId, role: role || 'student', email });
     return { token, user: { id: userId, fullName, email, role: role || 'student' } };
+  },
+
+  /**
+   * Bonus feature: "Sign in with Google". Verifies the ID token the
+   * frontend received from Google Identity Services, then either logs in
+   * an existing account with that email or creates a new student account
+   * on the spot (new Google sign-ins default to the student role — staff
+   * accounts are still provisioned directly by an administrator).
+   */
+  async loginWithGoogle({ idToken }) {
+    if (!googleClient) {
+      throw new HttpError(500, 'Google sign-in is not configured on this server.');
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new HttpError(401, 'Could not verify this Google sign-in. Please try again.');
+    }
+
+    if (!payload?.email) {
+      throw new HttpError(400, 'Your Google account did not provide an email address.');
+    }
+    if (payload.email_verified === false) {
+      throw new HttpError(403, 'Your Google email address is not verified.');
+    }
+
+    let user = await UserModel.findByEmail(payload.email);
+
+    if (!user) {
+      // First time signing in with this Google account — provision a new
+      // student account. The password field is required by the schema but
+      // will never be used for a Google-only account, so we store a
+      // random, unguessable hash rather than leaving it blank.
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      const fullName = payload.name || payload.email.split('@')[0];
+
+      const userId = await UserModel.create({ fullName, email: payload.email, passwordHash, role: 'student' });
+      await StudentModel.create({
+        userId,
+        studentId: `2026-${String(userId).padStart(5, '0')}`,
+        course: 'Undeclared',
+        yearLevel: '1st Year',
+        contactNumber: null,
+      });
+
+      user = await UserModel.findByEmail(payload.email);
+    }
+
+    if (user.status !== 'active') {
+      throw new HttpError(403, 'This account is not active. Contact the administrator.');
+    }
+
+    const token = signToken({ id: user.id, role: user.role, email: user.email });
+    return {
+      token,
+      user: {
+        id: user.id,
+        fullName: user.full_name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatar_url,
+      },
+    };
   },
 };
 

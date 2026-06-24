@@ -1,6 +1,7 @@
 // src/controllers/announcementController.js
 const AnnouncementModel = require('../models/announcementModel');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { emitToAll } = require('../socket');
 
 const getAnnouncements = asyncHandler(async (req, res) => {
   const { category } = req.query;
@@ -24,6 +25,11 @@ const createAnnouncement = asyncHandler(async (req, res) => {
     authorId: req.user.id,
   });
   const created = await AnnouncementModel.findById(id);
+
+  // Bonus feature: push the new announcement to every connected client in
+  // real time, so it shows up without a manual refresh.
+  emitToAll('announcement:new', created);
+
   res.status(201).json({ success: true, message: 'Announcement published.', data: created });
 });
 

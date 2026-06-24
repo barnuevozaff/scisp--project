@@ -1,15 +1,17 @@
 // src/pages/LoginPage.jsx
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -24,6 +26,24 @@ export default function LoginPage() {
       setSubmitting(false);
     }
   }
+
+  const handleGoogleCredential = useCallback(
+    async (idToken) => {
+      setError('');
+      setGoogleSubmitting(true);
+      try {
+        await loginWithGoogle(idToken);
+        navigate('/dashboard');
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not sign in with Google. Please try again.');
+      } finally {
+        setGoogleSubmitting(false);
+      }
+    },
+    [loginWithGoogle, navigate]
+  );
+
+  const handleGoogleError = useCallback((message) => setError(message), []);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -109,6 +129,18 @@ export default function LoginPage() {
               {submitting ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <span className="h-px flex-1 bg-hairline" />
+            <span className="text-xs uppercase tracking-widest2 text-ink-400">or</span>
+            <span className="h-px flex-1 bg-hairline" />
+          </div>
+
+          {googleSubmitting ? (
+            <p className="text-center text-sm text-ink-500">Signing in with Google…</p>
+          ) : (
+            <GoogleSignInButton onCredential={handleGoogleCredential} onError={handleGoogleError} />
+          )}
 
           <p className="text-center text-sm text-ink-500 mt-6">
             Don&apos;t have an account?{' '}

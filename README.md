@@ -76,6 +76,7 @@ Confirm it's running: open `http://localhost:5000/api/health` — you should see
 | Role    | Email                         | Password      |
 |---------|--------------------------------|----------------|
 | Student | richardnasol709@gmail.com      | Password123!   |
+| Faculty | jreyes@scisp.edu                | Password123!   |
 | Admin   | admin@scisp.edu.ph              | Password123!   |
 
 (Login also accepts the student ID `2024-00831` in place of the email.)
@@ -108,6 +109,7 @@ All endpoints except `/auth/login`, `/auth/register`, `/auth/logout`, and
 |--------|-----------------------|----------------------------------------------------|--------------------------------|
 | POST   | `/auth/login`          | `{ identifier, password }`                          | `identifier` = email or student ID |
 | POST   | `/auth/register`       | `{ fullName, email, password, role?, studentId?, course?, yearLevel? }` | `role` defaults to `student` |
+| POST   | `/auth/google`          | `{ idToken }`                                         | Bonus feature — verifies a Google ID token; auto-creates a student account on first sign-in |
 | POST   | `/auth/logout`         | —                                                    | Stateless; discard token client-side |
 
 ### Students
@@ -122,7 +124,7 @@ All endpoints except `/auth/login`, `/auth/register`, `/auth/logout`, and
 ### Schedules
 | Method | Endpoint              | Auth     | Notes |
 |--------|-----------------------|-----------|-------|
-| GET    | `/schedules?search=`   | any role   | Current user's enrolled schedule |
+| GET    | `/schedules?search=`   | any role   | Response shape depends on role: students get their own enrolled sections (`meta.totalUnits`), faculty get sections they teach (`meta.view: 'faculty'`, each row has `enrolled_count`), administrators get every section offered (`meta.view: 'administrator'`) |
 | GET    | `/schedules/:id`        | any role   | Single schedule entry |
 
 ### Announcements
@@ -154,7 +156,8 @@ Valid `category` values: `Academic`, `Student Affairs`, `Events`, `General Infor
 | GET    | `/events`                        | any role   | |
 | GET    | `/events/:id`                      | any role   | |
 | GET    | `/events/registrations/mine`        | any role   | Current student's registrations |
-| POST   | `/events/register`                  | student     | `{ eventId }` |
+| GET    | `/events/registrations/:id/qrcode`    | owner or staff | Returns a QR-code data URI (bonus feature) encoding the registration as an event "ticket" |
+| POST   | `/events/register`                  | student     | `{ eventId }` — response includes `data.registrationId` |
 
 ### Response shape
 ```json
@@ -224,3 +227,71 @@ optionally `npm run seed` (point `.env` at the cloud DB first) for demo data.
 | Library Information           | ✅ |
 | Faculty Directory              | ✅ |
 | Event Registration              | ✅ |
+
+## 7. Role-Aware Behavior
+
+The same screens adapt to the signed-in role rather than branching into
+separate apps:
+
+| Area | Student | Faculty | Administrator |
+|------|---------|---------|----------------|
+| Sidebar "Profile" item | "Student Profile" — editable course/year/contact, avatar upload | "My Profile" — read-only directory summary (department, rank, consultation hours) | "My Profile" — read-only account summary |
+| Schedule page | "Class Schedule" — own enrolled subjects, total units | "Teaching Schedule" — sections taught, enrolled headcount per section | "Schedule of Classes" — every section offered, with instructor |
+| Announcements | Read-only list | Read + **New / Edit / Delete** | Read + **New / Edit / Delete** |
+| Events | Read + **Register** | Read-only list | Read-only list |
+| Dashboard stat card | "Enrolled Subjects" | "Sections Taught" | "Sections Offered" |
+
+Backend enforcement: announcement writes (`POST/PUT/DELETE /announcements`)
+are gated server-side with `requireRole('administrator', 'faculty')` —
+the UI hiding the New/Edit/Delete buttons for students is a convenience,
+not the security boundary. Event registration (`POST /events/register`)
+requires a linked student profile regardless of what the client sends.
+
+## 8. Bonus Features Implemented
+
+Beyond the required modules, this project implements the following
+optional bonus features from the project guidelines:
+
+| Bonus Feature | Where it lives |
+|----------------|------------------|
+| **Mobile Responsive Design** | Every page uses Tailwind responsive breakpoints (`sm:`/`lg:`); the sidebar collapses to a hamburger-triggered overlay on small screens (`PortalLayout.jsx`, `Sidebar.jsx`). |
+| **Google Login (OAuth)** | `POST /api/auth/google` verifies the Google ID token via `google-auth-library` and signs in (or auto-creates, on first sign-in) a student account. Frontend renders Google's own button via Google Identity Services (`GoogleSignInButton.jsx`) on both the Login and Register pages. Requires a free Google Cloud OAuth Client ID — see setup below. |
+| **Email Notifications** | `backend/src/services/emailService.js`, via [Resend](https://resend.com) (free tier, no credit card). When a student registers for an event, a confirmation email is sent with the event details. Sent fire-and-forget so a slow/unreachable email provider never delays the registration response; quietly no-ops if `RESEND_API_KEY` isn't configured. |
+| **QR Code Event Registration** | `GET /api/events/registrations/:id/qrcode` generates a scannable QR "ticket" (via the `qrcode` npm package) encoding the registration, event, and student details. Students can view/download it from the Events page after registering (`EventTicketModal.jsx`). |
+| **Real-Time Notifications (WebSockets)** | Socket.io, authenticated with the same JWT as the REST API (`backend/src/socket.js`). When an admin/faculty member publishes a new announcement, every connected client sees it appear on the Announcements page instantly, with a "Live" indicator and a brief highlight — no refresh needed (`SocketContext.jsx`, `AnnouncementsPage.jsx`). |
+| **CI/CD Pipeline** | `.github/workflows/ci.yml` — on every push/PR to `main`, GitHub Actions installs dependencies, syntax-checks the backend, and builds the frontend production bundle, catching breakages before they reach Vercel/Railway. |
+| **Docker Containerization** | `backend/Dockerfile`, `frontend/Dockerfile` (multi-stage, served via nginx), and a root `docker-compose.yml` that runs the full stack (MySQL + backend + frontend) locally with one command — useful for local development/demo independent of the cloud deployment. |
+
+### Setting up Email Notifications (free, ~3 minutes)
+
+1. Sign up at [resend.com](https://resend.com) — free tier, no credit card needed.
+2. Verify your email address, then go to **Dashboard → API Keys → Create API Key**.
+3. Copy the key (starts with `re_`).
+4. Set it as `RESEND_API_KEY` in the **backend** `.env`/Railway variables.
+5. Leave `EMAIL_FROM` as the default `SCISP Events <onboarding@resend.dev>` — Resend's free tier lets you send from this address without owning a domain. (If you later verify your own domain with Resend, you can switch to a `@yourdomain.com` sender.)
+6. Redeploy the backend. Registering for an event will now also send a confirmation email to the student's account email.
+
+### Setting up Google OAuth (free, ~5 minutes)
+
+1. Go to [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials) (any free Google account works — no billing required for OAuth Client IDs).
+2. Create a project if you don't have one, then **Create Credentials → OAuth client ID**.
+3. Application type: **Web application**.
+4. Under **Authorized JavaScript origins**, add both:
+   - `http://localhost:5173` (local dev)
+   - your deployed frontend URL, e.g. `https://your-app.vercel.app`
+5. Copy the generated **Client ID** (looks like `123456-abc.apps.googleusercontent.com`).
+6. Set it as `GOOGLE_CLIENT_ID` in the **backend** `.env`/Railway variables, and as `VITE_GOOGLE_CLIENT_ID` in the **frontend** `.env`/Vercel variables — same value in both places.
+7. Redeploy both services. The "Continue with Google" button appears automatically on the Login and Register pages once the frontend variable is set; it's hidden if unset, so local development without it still works fine.
+
+### Running the full stack with Docker (optional, local only)
+
+```bash
+docker compose up --build
+```
+- Frontend: `http://localhost:8080`
+- Backend health check: `http://localhost:5000/api/health`
+
+This is provided for local development and architecture demonstration.
+The graded deployment remains Vercel (frontend) + Railway (backend) +
+cloud MySQL, per the project's required deployment targets.
+

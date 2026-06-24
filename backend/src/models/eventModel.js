@@ -40,6 +40,25 @@ const EventModel = {
     );
     return rows;
   },
+
+  /**
+   * A single registration by its own id, joined with event + student info.
+   * Used to verify ownership and to render the QR-code "ticket".
+   */
+  async findRegistrationById(registrationId) {
+    const [rows] = await pool.query(
+      `SELECT er.id AS registration_id, er.status, er.registered_at, er.student_id,
+              ev.event_name, ev.event_date, ev.venue, ev.organizer,
+              s.student_id AS student_number, u.full_name AS student_name
+       FROM event_registrations er
+       JOIN events ev ON ev.id = er.event_id
+       JOIN students s ON s.id = er.student_id
+       JOIN users u ON u.id = s.user_id
+       WHERE er.id = ? LIMIT 1`,
+      [registrationId]
+    );
+    return rows[0] || null;
+  },
 };
 
 module.exports = EventModel;

@@ -33,6 +33,14 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const loginWithGoogle = useCallback(async (idToken) => {
+    const { data } = await authService.loginWithGoogle(idToken);
+    localStorage.setItem('scisp_token', data.token);
+    localStorage.setItem('scisp_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authService.logout();
@@ -44,7 +52,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, loginWithGoogle, logout, isAuthenticated: !!user }}
+    >
       {children}
     </AuthContext.Provider>
   );
