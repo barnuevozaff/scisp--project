@@ -1,2 +1,0 @@
-mysql: [Warning] Using a password on the command line interface can be insecure.
-ERROR 1061 (42000) at line 156: Duplicate key name 'idx_announcements_category'
