@@ -1,15 +1,25 @@
 // src/pages/LibraryPage.jsx
 import { useEffect, useState } from 'react';
 import PortalLayout from '../components/layout/PortalLayout';
-import SearchInput from '../components/common/SearchInput';
+import SearchAutocomplete from '../components/common/SearchAutocomplete';
 import { LoadingState, ErrorState, EmptyState } from '../components/common/States';
 import { bookService } from '../services/portalService';
 
 export default function LibraryPage() {
   const [books, setBooks] = useState([]);
+  const [allBooks, setAllBooks] = useState([]); // unfiltered catalog, for instant suggestions
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Fetched once — powers the type-ahead dropdown without waiting on the
+  // debounced server search below.
+  useEffect(() => {
+    bookService
+      .getAll()
+      .then(({ data }) => setAllBooks(data))
+      .catch(() => setAllBooks([]));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -32,6 +42,16 @@ export default function LibraryPage() {
     };
   }, [search]);
 
+  const query = search.trim().toLowerCase();
+  const suggestions = query
+    ? allBooks.filter(
+        (b) =>
+          b.title.toLowerCase().includes(query) ||
+          b.author.toLowerCase().includes(query) ||
+          b.category.toLowerCase().includes(query)
+      )
+    : [];
+
   return (
     <PortalLayout>
       <p className="text-[0.7rem] tracking-widest2 uppercase text-maroon-600 font-medium mb-3">Resources</p>
@@ -42,7 +62,22 @@ export default function LibraryPage() {
         <p className="text-ink-500 text-[0.95rem] max-w-xl">
           Search the general collection. Materials may be requested at the main circulation desk.
         </p>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search by title, author, or category" />
+        <SearchAutocomplete
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by title, author, or category"
+          suggestions={suggestions}
+          getKey={(book) => book.id}
+          onSelect={(book) => setSearch(book.title)}
+          renderSuggestion={(book) => (
+            <>
+              <span className="block font-medium text-ink-900">{book.title}</span>
+              <span className="block text-xs text-ink-400">
+                {book.author} &middot; {book.category}
+              </span>
+            </>
+          )}
+        />
       </div>
 
       {loading ? (
@@ -65,7 +100,7 @@ export default function LibraryPage() {
             </thead>
             <tbody>
               {books.map((book) => (
-                <tr key={book.id} className="border-b border-hairline last:border-b-0">
+                <tr key={book.id} className="border-b border-hairline last:border-b-0 transition-colors duration-150 hover:bg-surface-subtle">
                   <td className="px-6 py-4 font-medium text-ink-900">{book.title}</td>
                   <td className="px-6 py-4 text-ink-700">{book.author}</td>
                   <td className="px-6 py-4 text-ink-700">{book.category}</td>

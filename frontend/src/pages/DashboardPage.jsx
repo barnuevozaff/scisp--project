@@ -63,15 +63,19 @@ export default function DashboardPage() {
     };
   }, []);
 
+  const role = user?.role || 'student';
+  const firstCardLabel =
+    role === 'faculty' ? 'Sections Taught' : role === 'administrator' ? 'Sections Offered' : 'Enrolled Subjects';
+
   const statCards = [
-    { label: 'Enrolled Subjects', value: stats.subjects },
+    { label: firstCardLabel, value: stats.subjects },
     { label: 'Pending Announcements', value: stats.announcements },
     { label: 'Library Loans', value: stats.loans },
     { label: 'Upcoming Events', value: stats.events },
   ];
 
   const quickLinks = [
-    { label: 'View class schedule', to: '/schedule', icon: CalendarDays },
+    { label: role === 'faculty' ? 'View teaching schedule' : 'View class schedule', to: '/schedule', icon: CalendarDays },
     { label: 'Read announcements', to: '/announcements', icon: Megaphone },
     { label: 'Search library catalog', to: '/library', icon: BookOpen },
     { label: 'Browse upcoming events', to: '/events', icon: Ticket },
@@ -80,7 +84,7 @@ export default function DashboardPage() {
   return (
     <PortalLayout>
       <p className="text-[0.7rem] tracking-widest2 uppercase text-maroon-600 font-medium mb-3">
-        Welcome, {(user?.role || 'student').toUpperCase()}
+        Welcome, {role.toUpperCase()}
       </p>
       <h1 className="font-serif text-display-md sm:text-display-lg text-ink-900">
         Good day, {firstName(user?.fullName)}.
@@ -97,7 +101,10 @@ export default function DashboardPage() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-hairline border border-hairline mb-10">
             {statCards.map((card) => (
-              <div key={card.label} className="bg-white px-6 py-7">
+              <div
+                key={card.label}
+                className="bg-white px-6 py-7 transition-colors duration-150 hover:bg-surface-subtle"
+              >
                 <p className="text-[0.68rem] tracking-widest2 uppercase text-ink-400 mb-3">{card.label}</p>
                 <p className="font-serif text-4xl text-ink-900">{card.value}</p>
               </div>
@@ -110,7 +117,7 @@ export default function DashboardPage() {
                 <h2 className="font-serif text-xl text-ink-900">Recent announcements</h2>
                 <Link
                   to="/announcements"
-                  className="flex items-center gap-1 text-xs font-medium tracking-wide uppercase text-maroon-600 hover:underline"
+                  className="flex items-center gap-1 text-xs font-medium tracking-wide uppercase text-maroon-600 hover:underline transition-colors"
                 >
                   View all <ArrowUpRight size={14} />
                 </Link>
@@ -119,13 +126,17 @@ export default function DashboardPage() {
                 <p className="px-6 py-8 text-sm text-ink-400">No announcements yet.</p>
               ) : (
                 recentAnnouncements.map((a) => (
-                  <div key={a.id} className="px-6 py-5 border-b border-hairline last:border-b-0">
+                  <Link
+                    key={a.id}
+                    to="/announcements"
+                    className="block px-6 py-5 border-b border-hairline last:border-b-0 transition-colors duration-150 hover:bg-surface-subtle"
+                  >
                     <span className="inline-block border border-hairline px-2.5 py-0.5 text-[0.65rem] tracking-wide uppercase text-ink-500 mb-2.5">
                       {a.category}
                     </span>
                     <p className="font-serif text-[1.05rem] text-ink-900 leading-snug mb-1.5">{a.title}</p>
                     <p className="text-xs text-ink-400">{timeAgo(a.published_at)}</p>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -138,13 +149,16 @@ export default function DashboardPage() {
                 <Link
                   key={to}
                   to={to}
-                  className="flex items-center justify-between gap-3 px-6 py-4 border-b border-hairline last:border-b-0 hover:bg-surface-subtle transition-colors"
+                  className="group flex items-center justify-between gap-3 px-6 py-4 border-b border-hairline last:border-b-0 transition-colors duration-150 hover:bg-surface-subtle"
                 >
-                  <span className="flex items-center gap-3 text-sm text-ink-700">
+                  <span className="flex items-center gap-3 text-sm text-ink-700 transition-colors group-hover:text-ink-900">
                     <Icon size={16} className="text-maroon-600" />
                     {label}
                   </span>
-                  <ArrowUpRight size={14} className="text-ink-400" />
+                  <ArrowUpRight
+                    size={14}
+                    className="text-ink-400 transition-all duration-150 group-hover:text-maroon-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
                 </Link>
               ))}
             </div>

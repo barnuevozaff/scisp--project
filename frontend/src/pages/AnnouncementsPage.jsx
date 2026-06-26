@@ -168,7 +168,7 @@ export default function AnnouncementsPage() {
           {announcements.map((a) => (
             <article
               key={a.id}
-              className={`px-6 sm:px-8 py-8 border-b border-hairline last:border-b-0 transition-colors duration-1000 ${
+              className={`px-6 sm:px-8 py-8 border-b border-hairline last:border-b-0 transition-colors duration-1000 hover:bg-surface-subtle ${
                 justArrivedId === a.id ? 'bg-maroon-50' : ''
               }`}
             >

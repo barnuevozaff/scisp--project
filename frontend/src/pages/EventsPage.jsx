@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 function formatEventDate(dateStr) {
   const d = new Date(dateStr);
   const datePart = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const timePart = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   return `${datePart} \u00B7 ${timePart}`;
 }
 
@@ -97,7 +97,7 @@ export default function EventsPage() {
               const registrationId = registrationByEvent.get(event.id);
               const isRegistered = registrationByEvent.has(event.id);
               return (
-                <div key={event.id} className="bg-white px-7 py-7 flex flex-col">
+                <div key={event.id} className="bg-white px-7 py-7 flex flex-col transition-colors duration-150 hover:bg-surface-subtle">
                   <h2 className="font-serif text-2xl text-ink-900 leading-snug mb-3">{event.event_name}</h2>
                   <p className="text-ink-700 leading-relaxed mb-5">{event.description}</p>
 

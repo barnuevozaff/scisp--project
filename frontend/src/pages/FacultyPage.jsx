@@ -2,15 +2,23 @@
 import { useEffect, useState } from 'react';
 import { Mail, Clock } from 'lucide-react';
 import PortalLayout from '../components/layout/PortalLayout';
-import SearchInput from '../components/common/SearchInput';
+import SearchAutocomplete from '../components/common/SearchAutocomplete';
 import { LoadingState, ErrorState, EmptyState } from '../components/common/States';
 import { facultyService } from '../services/portalService';
 
 export default function FacultyPage() {
   const [faculty, setFaculty] = useState([]);
+  const [allFaculty, setAllFaculty] = useState([]); // unfiltered directory, for instant suggestions
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    facultyService
+      .getAll()
+      .then(({ data }) => setAllFaculty(data))
+      .catch(() => setAllFaculty([]));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,6 +41,13 @@ export default function FacultyPage() {
     };
   }, [search]);
 
+  const query = search.trim().toLowerCase();
+  const suggestions = query
+    ? allFaculty.filter(
+        (f) => f.full_name.toLowerCase().includes(query) || f.department.toLowerCase().includes(query)
+      )
+    : [];
+
   return (
     <PortalLayout>
       <p className="text-[0.7rem] tracking-widest2 uppercase text-maroon-600 font-medium mb-3">Directory</p>
@@ -43,7 +58,20 @@ export default function FacultyPage() {
         <p className="text-ink-500 text-[0.95rem] max-w-xl">
           Browse academic personnel and their consultation hours by name.
         </p>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search by faculty name" />
+        <SearchAutocomplete
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by faculty name"
+          suggestions={suggestions}
+          getKey={(f) => f.id}
+          onSelect={(f) => setSearch(f.full_name)}
+          renderSuggestion={(f) => (
+            <>
+              <span className="block font-medium text-ink-900">{f.full_name}</span>
+              <span className="block text-xs text-ink-400">{f.department}</span>
+            </>
+          )}
+        />
       </div>
 
       {loading ? (
@@ -55,7 +83,7 @@ export default function FacultyPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-hairline border border-hairline">
           {faculty.map((f) => (
-            <div key={f.id} className="bg-white px-6 py-7">
+            <div key={f.id} className="bg-white px-6 py-7 transition-colors duration-150 hover:bg-surface-subtle">
               <div className="h-14 w-14 rounded-full border border-hairline bg-surface-subtle flex items-center justify-center font-serif text-base text-ink-700 mb-5">
                 {f.faculty_code}
               </div>
